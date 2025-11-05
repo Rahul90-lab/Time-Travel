@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Time Travel Catastrophe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
+      body {
+        font-family: "Inter", sans-serif;
+        transition: background-color 0.5s;
+      }
+      .text-neon {
+        color: #38bdf8; /* Sky-500 */
+        text-shadow: 0 0 5px #0ea5e9, 0 0 10px #0ea5e9;
+      }
+      .glow-shadow {
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+      }
+      .scanner-line {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+        animation: scan 3s infinite linear;
+      }
+      @keyframes scan {
+        0% {
+          transform: translateY(0);
+          opacity: 0.8;
+        }
+        50% {
+          transform: translateY(100%);
+          opacity: 0.8;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 0.8;
+        }
+      }
+      @keyframes flicker {
+        0%,
+        19%,
+        21%,
+        23%,
+        25%,
+        54%,
+        56%,
+        100% {
+          text-shadow: 0 0 4px #f87171, 0 0 10px #ef4444;
+        }
+        20%,
+        24%,
+        55% {
+          text-shadow: none;
+        }
+      }
+      /* Message bubble + typing indicator */
+      .message-bubble {
+        display: inline-block;
+        background: rgba(14,165,233,0.06);
+        padding: 6px 10px;
+        border-radius: 8px;
+        color: #7dd3fc; /* lighter neon */
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Helvetica Neue", monospace;
+        transform-origin: left center;
+        animation: fadeIn 220ms ease-out both;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(6px) scale(0.99); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      .typing-indicator { display: flex; gap: 6px; align-items: center; }
+      .typing-indicator .dot {
+        width: 8px; height: 8px; background: #60a5fa; border-radius: 9999px; opacity: 0.9;
+        transform: translateY(0);
+        animation: bounce 1s infinite ease-in-out;
+      }
+      .typing-indicator .dot:nth-child(2) { animation-delay: 0.15s; }
+      .typing-indicator .dot:nth-child(3) { animation-delay: 0.3s; }
+      @keyframes bounce {
+        0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+        40% { transform: translateY(-6px); opacity: 1; }
+      }
+
+      /* Prevent large error text from overflowing modal */
+      .error-content { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
+      .error-scroll { max-height: 75vh; overflow-y: auto; }
+    </style>
+  </head>
+  <body
+    class="bg-gray-900 text-gray-200 min-h-screen flex items-center justify-center p-4"
+  >
+    <div
+      id="main-interface"
+      class="w-full max-w-lg bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 transition-all duration-500"
+    >
+      <h1 class="text-3xl font-extrabold text-neon mb-6 text-center">
+        Temporal Displacement Terminal
+      </h1>
+      <div class="relative mb-8">
+        <div class="h-1 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            id="progress-bar"
+            class="h-1 bg-neon transition-all duration-300 w-0"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Input Form -->
+      <form id="travel-form" class="space-y-6">
+        <div>
+          <label
+            for="traveler-name"
+            class="block text-sm font-medium text-gray-400"
+            >Enter Traveler's Name</label
+          >
+          <input
+            type="text"
+            id="traveler-name"
+            value="Captain Nexus"
+            required
+            class="mt-1 block w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:ring-sky-500 focus:border-sky-500 glow-shadow text-white placeholder-gray-500"
+          />
+        </div>
+        <div>
+          <label
+            for="target-year"
+            class="block text-sm font-medium text-gray-400"
+            >Target Year</label
+          >
+          <input
+            type="number"
+            id="target-year"
+            value="3000"
+            min="2026"
+            required
+            class="mt-1 block w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:ring-sky-500 focus:border-sky-500 glow-shadow text-white placeholder-gray-500"
+          />
+          <p id="year-error" class="text-red-400 text-sm mt-1 hidden">
+            Year must be 2026 or later, time travel backwards is too dangerous!
+          </p>
+        </div>
+        <button
+          type="submit"
+          id="travel-button"
+          class="w-full flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-lg text-gray-900 bg-sky-500 hover:bg-sky-400 transition-all duration-300 shadow-xl hover:shadow-sky-500/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+        >
+          INITIATE TIME JUMP
+        </button>
+      </form>
+
+      <!-- Simulation Progress -->
+      <div
+        id="simulation-output"
+        class="mt-8 bg-gray-900 p-4 rounded-lg h-40 overflow-y-auto hidden relative border border-gray-700"
+      >
+        <!-- Messages will be appended here -->
+        <div id="typing-indicator" class="hidden mt-2">
+          <div class="typing-indicator">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fullscreen Error -->
+    <div
+      id="error-screen"
+      class="fixed inset-0 bg-black/95 backdrop-blur-sm hidden z-50 flex flex-col items-center justify-center"
+    >
+      <!-- Video centered and larger -->
+      <div class="w-full max-w-4xl mx-auto px-4">
+        <video 
+          class="w-full aspect-video rounded-lg shadow-2xl mb-12"
+          autoplay
+          loop
+          muted
+          playsinline
+        >
+          <source src="GsYRWt0WIAAgnUl.jpg" type="image/jpeg">
+          Your browser does not support the video tag.
+        </video>
+        <img src="GsYRWt0WIAAgnUl.jpg" alt="Error Image" class="w-full aspect-video rounded-lg shadow-2xl mb-12" />
+       
+      </div>
+
+      <!-- Large centered message with glow effect -->
+      <div class="text-center px-4 mb-12">
+        <p
+          id="final-message"
+          class="text-5xl md:text-7xl lg:text-8xl font-bold text-red-100 animate-pulse"
+          style="text-shadow: 0 0 20px rgba(255,0,0,0.7), 0 0 40px rgba(255,0,0,0.4);"
+        >
+          2026 mai to duniya khtam hai!
+        </p>
+      </div>
+
+      <!-- Centered button at bottom -->
+      <button
+        onclick="window.location.reload()"
+        class="px-8 py-4 bg-red-600 text-white text-xl font-medium rounded-lg hover:bg-red-700 transition duration-200 hover:scale-105 transform"
+      >
+        TRY AGAIN (SPOILER FREE)
+      </button>
+    </div>
+
+    <script type="module">
+      const travelForm = document.getElementById("travel-form");
+      const travelButton = document.getElementById("travel-button");
+      const simulationOutput = document.getElementById("simulation-output");
+  const typingIndicator = document.getElementById("typing-indicator");
+      const errorScreen = document.getElementById("error-screen");
+      const progressBar = document.getElementById("progress-bar");
+      const yearInput = document.getElementById("target-year");
+      const yearError = document.getElementById("year-error");
+
+      // Funny, sequential messages
+      const messages = [
+        {
+          delay: 2500,
+          text: ">>> Initializing Quantum Flux Capacitor...",
+          duration: 10,
+        },
+        {
+          delay: 2000,
+          text: ">>> Calibrating Temporal Displacement Fields...",
+          duration: 20,
+        },
+        {
+          delay: 2200,
+          text: ">>> Checking atmospheric conditions for Target Year...",
+          duration: 30,
+        },
+        {
+          delay: 2800,
+          text: ">>> Scanning future stock market forecasts (Spoiler alert: Don't invest in NFTs)...",
+          duration: 45,
+        },
+        {
+          delay: 3500,
+          text: ">>> Calling NASA API for stability check (Hold on, this always takes forever)...",
+          duration: 60,
+        },
+        {
+          delay: 2000,
+          text: "!!! WARNING: NASA API call rejected. Reason: 'Too many temporal paradox requests.'",
+          duration: 75,
+          color: "text-yellow-400",
+        },
+        {
+          delay: 3000,
+          text: ">>> Engaging Reality Distortion Engine (RDE)...",
+          duration: 85,
+        },
+        {
+          delay: 3500,
+          text: "!!! FATAL ERROR: RDE reports insufficient motivation. Engaging catastrophic failure mode...",
+          duration: 100,
+          color: "text-red-400",
+        },
+      ];
+
+      let messageIndex = 0;
+      let totalProgress = 0;
+
+      // Function to display messages sequentially
+      const runSimulation = () => {
+        if (messageIndex < messages.length) {
+          const message = messages[messageIndex];
+          const line = document.createElement("p");
+          // Use a styled message bubble and color fallback
+          line.className = `message-bubble mb-2 ${message.color || "text-green-300"}`;
+          line.textContent = message.text;
+
+          // Add message and scroll to bottom
+          simulationOutput.appendChild(line);
+          simulationOutput.scrollTop = simulationOutput.scrollHeight;
+
+          // Show typing indicator while waiting for next message
+          if (typingIndicator) typingIndicator.classList.remove("hidden");
+
+          // Update progress bar (keep original simplistic behaviour)
+          totalProgress = message.duration;
+          progressBar.style.width = `${totalProgress}%`;
+
+          messageIndex++;
+          setTimeout(() => {
+            if (typingIndicator) typingIndicator.classList.add("hidden");
+            runSimulation();
+          }, message.delay);
+        } else {
+          // Simulation complete, hide typing indicator and show the error screen
+          if (typingIndicator) typingIndicator.classList.add("hidden");
+          setTimeout(() => {
+            // copy full simulation transcript into the modal so everything is visible
+            const finalTranscript = document.getElementById("final-transcript");
+            if (finalTranscript) {
+              // clone the simulation HTML but normalize message-bubble -> simple readable lines
+              finalTranscript.innerHTML = simulationOutput.innerHTML;
+              // ensure transcript scrolls to bottom to show the final messages
+              finalTranscript.scrollTop = finalTranscript.scrollHeight;
+            }
+
+            document.body.classList.add("bg-red-900");
+            document.getElementById("main-interface").classList.add("hidden");
+            errorScreen.classList.remove("hidden");
+          }, 600); // slightly shorter delay before the final error screen pop up
+        }
+      };
+
+      const handleSubmit = (event) => {
+        event.preventDefault();
+
+        const targetYear = parseInt(yearInput.value, 10);
+        const currentYear = new Date().getFullYear();
+
+        // Basic validation
+        if (isNaN(targetYear) || targetYear < currentYear + 1) {
+          yearError.classList.remove("hidden");
+          return;
+        }
+        yearError.classList.add("hidden");
+
+        // Start simulation UI change
+        travelForm.classList.add("hidden");
+        simulationOutput.classList.remove("hidden");
+
+  // show subtle typing indicator
+  if (typingIndicator) typingIndicator.classList.remove("hidden");
+
+        // Start the sequence
+        runSimulation();
+      };
+
+      travelForm.addEventListener("submit", handleSubmit);
+    </script>
+  </body>
+</html>
